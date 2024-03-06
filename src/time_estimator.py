@@ -1,8 +1,34 @@
-from typing import Callable
-import logging
-
+import time
 import numpy as np
 import pandas as pd
+import logging
+
+from typing import Callable
+import threading
+
+
+class Simulation:
+    def __init__(self, estimated_time):
+        self.estimated_time = estimated_time
+
+    def save(self):
+        print(f"Simulation saved with estimated time: {self.estimated_time}")
+
+
+def get_callback(simulation):
+    def db_save(estimated_time):
+        print(
+            f"********************************* Estimated time: {simulation.estimated_time}"
+        )
+        simulation.estimated_time = round(estimated_time, 2)
+        simulation.save()
+        print("********************************* Simulation updated")
+
+    def update_simulation_status(estimated_time):
+        thread = threading.Thread(target=db_save, args=(estimated_time,))
+        thread.start()
+
+    return update_simulation_status
 
 
 logger = logging.getLogger("TIME_ESTIMATOR")
@@ -138,9 +164,49 @@ class TimeEstimator:
         iterations_left = self.total_iterations - current_iteration
         time_left = iterations_left * calc_duration
         return time_left
-
+    
     @staticmethod
     def default_callback(time):
+        with open("time_estimator.log", "a") as file:
+            file.write(f"{time}\n")
         print(
-            f"=================================================== ------ Estimated time left: {time:.4}"
+            f"=================================================== ------ Estimated time left: {time}"
         )
+
+
+if __name__ == "__main__":
+
+    def test_time_estimator():
+        est_list = []
+
+        def callback(time):
+            print(f"Estimated time left: {time}")
+            est_list.append(time)
+
+        with open("./diffs.txt", "r") as file:
+            execution_times = [float(line.strip()) for line in file]
+        total_iterations = range(0, len(execution_times))
+        # total_iterations = range(0, 1000, 3)
+
+        time_estimator = TimeEstimator(total_iterations, callback=callback)
+
+        start = time.time()
+        total = time.time()
+        time_estimator.push(total)
+
+        for i in total_iterations:
+            total += execution_times[i]
+            time_estimator.push(total, i)
+
+        # for i in total_iterations:
+        #     random_time = random.randint(10, 15) / 100
+        #     time.sleep(random_time)
+        #     time_estimator.push(time.time(), i)
+
+        end = time.time()
+        print(f"Total time: {end - start}")
+
+        # plot_estimated_times(data=est_list)
+
+    test_time_estimator()
+    # test()
